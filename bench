@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+rm -f ./plots/data/perf_data.csv
+rm -f plot_previous.pdf
+mv plot.pdf plot_previous.pdf
+rm -f plot.pdf
+
+sizes6208=(16 32 64 97 194 388 776 1552 3104 6208)
+
+for ts in ${sizes6208[@]}; do
+    for nbThread in $(seq 1 16); do 
+        OMP_NUM_THREADS=$nbThread ./run -k life -v tiled_omp -ts $ts -s 6208 -a meta3x3 -n -i 10; 
+    done
+done
+
+./plots/easyplot.py
