@@ -188,22 +188,22 @@ unsigned life_compute_tiled_omp(unsigned nb_iter) {
 
 //////////////////////// Omp tiled lazy version
 
-enum TileState get_tile_from_pixel(int x, int y) {
+inline enum TileState get_tile_from_pixel(int x, int y) {
   return active_tiles[(y / TILE_H) * NB_TILES_X + (x / TILE_W)];
 }
 
-enum TileState get_tile(int x, int y) {
+inline enum TileState get_tile(int x, int y) {
   return active_tiles[y * NB_TILES_X + x];
 }
 
-void set_tile_from_pixel(int x, int y, enum TileState t) {
-  #pragma omp atomic write
-  active_tiles[(y / TILE_H) * NB_TILES_X + (x / TILE_W)] = t;
+inline void set_tile(int x, int y, enum TileState t) {
+//#pragma omp atomic write
+//#pragma omp critical
+  active_tiles[y * NB_TILES_X + x] = t;
 }
 
-void set_tile(int x, int y, enum TileState t) {
-  #pragma omp atomic write
-  active_tiles[y * NB_TILES_X + x] = t;
+inline void set_tile_from_pixel(int x, int y, enum TileState t) {
+  set_tile(x / TILE_W, y / TILE_H, t);
 }
 
 static void wakeup_around(int x, int y) {
@@ -291,11 +291,13 @@ unsigned life_compute_tiled_omp_lazy(unsigned nb_iter) {
   int x, y;
   for (unsigned it = 1; it <= nb_iter; it++) {
     unsigned change = 0;
-
-#pragma omp parallel for collapse(2) reduction(| : change) schedule(runtime)
-    for (y = 0; y < DIM; y += TILE_H)
-      for (x = 0; x < DIM; x += TILE_W)
-        change |= do_tile_lazy(x, y, TILE_W, TILE_H, omp_get_thread_num());
+#pragma omp parallel
+    {
+#pragma omp for collapse(2) reduction(| : change) schedule(runtime) nowait
+      for (y = 0; y < DIM; y += TILE_H)
+        for (x = 0; x < DIM; x += TILE_W)
+          change |= do_tile_lazy(x, y, TILE_W, TILE_H, omp_get_thread_num());
+    }
 
     swap_tables();
 
