@@ -10,11 +10,11 @@ options["-k "] = ["life"]
 options["-i "] = [30]
 options["-v "] = ["omp", "omp_task"]
 options["-s "] = [1024, 2048]
-options["-g "] = [4, 8, 16, 32]
+options["-ts "] = [4, 8, 16, 32]
 options["-a "] = ["random"]
 
 # Pour renseigner l'option '-of' il faut donner le chemin depuis le fichier easypap
-options["-of "] = ["./plots/data/perf_data.csv"]
+# options["-of "] = ["./plots/data/perf_data.csv"]
 
 
 # Dictionnaire avec les options OMP
