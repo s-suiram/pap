@@ -129,6 +129,16 @@ static int do_tile_reg(int x, int y, int width, int height) {
   return change;
 }
 
+static int do_tile_ji(int x, int y, int width, int height) {
+  int change = 0;
+
+  for (int j = y; j < y + height; j++)
+    for (int i = x; i < x + width; i++)
+      change |= compute_new_state(i, j);
+
+  return change;
+}
+
 static int do_tile(int x, int y, int width, int height, int who) {
   int r;
 
@@ -286,6 +296,57 @@ static int do_tile_lazy(int x, int y, int width, int height, int who) {
 }
 
 unsigned life_compute_tiled_omp_lazy(unsigned nb_iter) {
+
+  unsigned res = 0;
+  int x, y;
+  for (unsigned it = 1; it <= nb_iter; it++) {
+    unsigned change = 0;
+#pragma omp parallel
+    {
+#pragma omp for collapse(2) reduction(| : change) schedule(runtime) nowait
+      for (y = 0; y < DIM; y += TILE_H)
+        for (x = 0; x < DIM; x += TILE_W)
+          change |= do_tile_lazy(x, y, TILE_W, TILE_H, omp_get_thread_num());
+    }
+
+    swap_tables();
+
+    if (!change) { // we stop when all cells are stable
+      res = it;
+      break;
+    }
+  }
+  return res;
+}
+
+//////////////////////// Omp tiled lazy version with ji
+
+static int do_tile_lazy_ji(int x, int y, int width, int height, int who) {
+  int r = 0;
+  if (get_tile_from_pixel(x, y) >= ACTIVE) {
+    monitoring_start_tile(who);
+
+    r = do_tile_ji(x, y, width, height);
+
+    enum TileState newState = r == 0 ? STABLE : ACTIVE;
+    if (newState == ACTIVE) {
+      wakeup_around(x, y);
+    }
+
+    if (get_tile_from_pixel(x, y) == OVERRIDE_STABILITY) {
+      newState = ACTIVE;
+    }
+    set_tile_from_pixel(x, y, newState);
+
+    monitoring_end_tile(x, y, width, height, who);
+  } else {
+    set_tile_from_pixel(x, y, STABLE);
+  }
+
+  return r;
+}
+
+unsigned life_compute_tiled_omp_lazy_ji(unsigned nb_iter) {
 
   unsigned res = 0;
   int x, y;
