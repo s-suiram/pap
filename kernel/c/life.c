@@ -319,6 +319,14 @@ unsigned life_compute_tiled_omp_lazy(unsigned nb_iter) {
   return res;
 }
 
+void life_ft (void)
+{
+  #pragma omp parallel for
+    for (int i = 0; i<DIM; i++)
+      for (int j = 0; j<DIM; j+=512)
+        next_img (i,j) = cur_img(i,j) = 0; 
+}
+
 //////////////////////// Omp tiled lazy version with ji
 
 static int do_tile_lazy_ji(int x, int y, int width, int height, int who) {
@@ -357,7 +365,7 @@ unsigned life_compute_tiled_omp_lazy_ji(unsigned nb_iter) {
 #pragma omp for collapse(2) reduction(| : change) schedule(runtime) nowait
       for (y = 0; y < DIM; y += TILE_H)
         for (x = 0; x < DIM; x += TILE_W)
-          change |= do_tile_lazy(x, y, TILE_W, TILE_H, omp_get_thread_num());
+          change |= do_tile_lazy_ji(x, y, TILE_W, TILE_H, omp_get_thread_num());
     }
 
     swap_tables();
