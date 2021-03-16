@@ -23,7 +23,7 @@ static inline cell_t *table_cell(cell_t *restrict i, int y, int x) {
 #define cur_table(y, x) (*table_cell(_table, (y), (x)))
 #define next_table(y, x) (*table_cell(_alternate_table, (y), (x)))
 
-enum TileState { ACTIVE = 0, STABLE = -1, OVERRIDE_STABILITY = 1 };
+enum TileState { AWAKE = 0, ASLEEP = -1, INSOMNIA = 1 };
 
 enum TileState *active_tiles = 0;
 
@@ -44,7 +44,7 @@ void life_init(void) {
 
   if (active_tiles == 0) {
     active_tiles = calloc(NB_TILES_X * NB_TILES_Y, sizeof(enum TileState));
-    memset(active_tiles, ACTIVE,
+    memset(active_tiles, AWAKE,
            NB_TILES_X * NB_TILES_Y * sizeof(enum TileState));
   }
 }
@@ -220,76 +220,76 @@ static void wakeup_around(int x, int y) {
   int tx = x / TILE_W;
   int ty = y / TILE_H;
   if (tx == 0 && ty == 0) { // top left
-    set_tile(tx + 1, ty, OVERRIDE_STABILITY);
-    set_tile(tx, ty + 1, OVERRIDE_STABILITY);
-    set_tile(tx + 1, ty + 1, OVERRIDE_STABILITY);
+    set_tile(tx + 1, ty, INSOMNIA);
+    set_tile(tx, ty + 1, INSOMNIA);
+    set_tile(tx + 1, ty + 1, INSOMNIA);
   } else if (tx + 1 == NB_TILES_X && ty == 0) { // top right
-    set_tile(tx - 1, ty, OVERRIDE_STABILITY);
-    set_tile(tx, ty + 1, OVERRIDE_STABILITY);
-    set_tile(tx - 1, ty + 1, OVERRIDE_STABILITY);
+    set_tile(tx - 1, ty, INSOMNIA);
+    set_tile(tx, ty + 1, INSOMNIA);
+    set_tile(tx - 1, ty + 1, INSOMNIA);
   } else if (tx + 1 == NB_TILES_X && ty + 1 == NB_TILES_Y) { // bottom right
-    set_tile(tx - 1, ty, OVERRIDE_STABILITY);
-    set_tile(tx, ty - 1, OVERRIDE_STABILITY);
-    set_tile(tx - 1, ty - 1, OVERRIDE_STABILITY);
+    set_tile(tx - 1, ty, INSOMNIA);
+    set_tile(tx, ty - 1, INSOMNIA);
+    set_tile(tx - 1, ty - 1, INSOMNIA);
   } else if (tx == 0 && ty + 1 == NB_TILES_Y) { // bottom left
-    set_tile(tx + 1, ty, OVERRIDE_STABILITY);
-    set_tile(tx, ty - 1, OVERRIDE_STABILITY);
-    set_tile(tx + 1, ty - 1, OVERRIDE_STABILITY);
+    set_tile(tx + 1, ty, INSOMNIA);
+    set_tile(tx, ty - 1, INSOMNIA);
+    set_tile(tx + 1, ty - 1, INSOMNIA);
   } else if (ty == 0) { // top
-    set_tile(tx - 1, ty, OVERRIDE_STABILITY);
-    set_tile(tx + 1, ty, OVERRIDE_STABILITY);
-    set_tile(tx, ty + 1, OVERRIDE_STABILITY);
-    set_tile(tx + 1, ty + 1, OVERRIDE_STABILITY);
-    set_tile(tx - 1, ty + 1, OVERRIDE_STABILITY);
+    set_tile(tx - 1, ty, INSOMNIA);
+    set_tile(tx + 1, ty, INSOMNIA);
+    set_tile(tx, ty + 1, INSOMNIA);
+    set_tile(tx + 1, ty + 1, INSOMNIA);
+    set_tile(tx - 1, ty + 1, INSOMNIA);
   } else if (tx + 1 == NB_TILES_X) { // right
-    set_tile(tx - 1, ty, OVERRIDE_STABILITY);
-    set_tile(tx, ty + 1, OVERRIDE_STABILITY);
-    set_tile(tx, ty - 1, OVERRIDE_STABILITY);
-    set_tile(tx - 1, ty - 1, OVERRIDE_STABILITY);
-    set_tile(tx - 1, ty + 1, OVERRIDE_STABILITY);
+    set_tile(tx - 1, ty, INSOMNIA);
+    set_tile(tx, ty + 1, INSOMNIA);
+    set_tile(tx, ty - 1, INSOMNIA);
+    set_tile(tx - 1, ty - 1, INSOMNIA);
+    set_tile(tx - 1, ty + 1, INSOMNIA);
   } else if (ty + 1 == NB_TILES_Y) { // bottom
-    set_tile(tx - 1, ty, OVERRIDE_STABILITY);
-    set_tile(tx + 1, ty, OVERRIDE_STABILITY);
-    set_tile(tx, ty - 1, OVERRIDE_STABILITY);
-    set_tile(tx + 1, ty - 1, OVERRIDE_STABILITY);
-    set_tile(tx - 1, ty - 1, OVERRIDE_STABILITY);
+    set_tile(tx - 1, ty, INSOMNIA);
+    set_tile(tx + 1, ty, INSOMNIA);
+    set_tile(tx, ty - 1, INSOMNIA);
+    set_tile(tx + 1, ty - 1, INSOMNIA);
+    set_tile(tx - 1, ty - 1, INSOMNIA);
   } else if (tx == 0) { // left
-    set_tile(tx + 1, ty, OVERRIDE_STABILITY);
-    set_tile(tx, ty + 1, OVERRIDE_STABILITY);
-    set_tile(tx + 1, ty - 1, OVERRIDE_STABILITY);
-    set_tile(tx + 1, ty + 1, OVERRIDE_STABILITY);
+    set_tile(tx + 1, ty, INSOMNIA);
+    set_tile(tx, ty + 1, INSOMNIA);
+    set_tile(tx + 1, ty - 1, INSOMNIA);
+    set_tile(tx + 1, ty + 1, INSOMNIA);
   } else { // middle
-    set_tile(tx + 1, ty, OVERRIDE_STABILITY);
-    set_tile(tx - 1, ty, OVERRIDE_STABILITY);
-    set_tile(tx, ty + 1, OVERRIDE_STABILITY);
-    set_tile(tx, ty - 1, OVERRIDE_STABILITY);
-    set_tile(tx + 1, ty + 1, OVERRIDE_STABILITY);
-    set_tile(tx + 1, ty - 1, OVERRIDE_STABILITY);
-    set_tile(tx - 1, ty + 1, OVERRIDE_STABILITY);
-    set_tile(tx - 1, ty - 1, OVERRIDE_STABILITY);
+    set_tile(tx + 1, ty, INSOMNIA);
+    set_tile(tx - 1, ty, INSOMNIA);
+    set_tile(tx, ty + 1, INSOMNIA);
+    set_tile(tx, ty - 1, INSOMNIA);
+    set_tile(tx + 1, ty + 1, INSOMNIA);
+    set_tile(tx + 1, ty - 1, INSOMNIA);
+    set_tile(tx - 1, ty + 1, INSOMNIA);
+    set_tile(tx - 1, ty - 1, INSOMNIA);
   }
 }
 
 static int do_tile_lazy(int x, int y, int width, int height, int who) {
   int r = 0;
-  if (get_tile_from_pixel(x, y) >= ACTIVE) {
+  if (get_tile_from_pixel(x, y) >= AWAKE) {
     monitoring_start_tile(who);
 
     r = do_tile_reg(x, y, width, height);
 
-    enum TileState newState = r == 0 ? STABLE : ACTIVE;
-    if (newState == ACTIVE) {
+    enum TileState newState = r == 0 ? ASLEEP : AWAKE;
+    if (newState == AWAKE) {
       wakeup_around(x, y);
     }
 
-    if (get_tile_from_pixel(x, y) == OVERRIDE_STABILITY) {
-      newState = ACTIVE;
+    if (get_tile_from_pixel(x, y) == INSOMNIA) {
+      newState = AWAKE;
     }
     set_tile_from_pixel(x, y, newState);
 
     monitoring_end_tile(x, y, width, height, who);
   } else {
-    set_tile_from_pixel(x, y, STABLE);
+    set_tile_from_pixel(x, y, ASLEEP);
   }
 
   return r;
@@ -331,24 +331,22 @@ void life_ft (void)
 
 static int do_tile_lazy_ji(int x, int y, int width, int height, int who) {
   int r = 0;
-  if (get_tile_from_pixel(x, y) >= ACTIVE) {
+  if (get_tile_from_pixel(x, y) >= AWAKE) {
     monitoring_start_tile(who);
 
     r = do_tile_ji(x, y, width, height);
 
-    enum TileState newState = r == 0 ? STABLE : ACTIVE;
-    if (newState == ACTIVE) {
+    enum TileState newState = r == 0 ? ASLEEP : AWAKE;
+    if (newState == AWAKE) {
       wakeup_around(x, y);
     }
 
-    if (get_tile_from_pixel(x, y) == OVERRIDE_STABILITY) {
-      newState = ACTIVE;
+    if (get_tile_from_pixel(x, y) == INSOMNIA) {
+      newState = AWAKE;
     }
     set_tile_from_pixel(x, y, newState);
 
     monitoring_end_tile(x, y, width, height, who);
-  } else {
-    set_tile_from_pixel(x, y, STABLE);
   }
 
   return r;
