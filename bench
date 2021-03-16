@@ -18,21 +18,33 @@
 # ./plots/easyplot.py
 
 
-####
+###
 # Script to compare each frame of two different variant of the same kernel
-####
+###
 
-i=5000
+i=1000
+s=6208
+lazy=tiled_omp_lazy
+tiled=tiled
 
-rm traces/data/*.png
-rm traces/data/old/*.png
-./run -k life -v seq -ts 8 -s 256 -n -i $i --thumbnails
-mv traces/data/*.png traces/data/old/
-./run -k life -v tiled_omp_lazy -ts 8 -s 256 -n -i $i --thumbnails
+using=$lazy
 
-cd traces/data
+try=2
 
-for filename in $(ls *.png); do
-    echo $filename;
-    diff $filename old/$filename
+make
+
+for t in $(seq 0 $try); do
+    rm dump-life-seq-dim-*-iter-*.png;
+    rm dump-life-$using-dim-*-iter-*.png;
+
+    ./run -k life -v seq -s $s -a meta3x3 -n -i $i --dump 2> /dev/null;
+    OMP_PLACES=cores ./run -k life -v $using -a meta3x3 -ts 64 -s $s -n -i $i --dump 2> /dev/null;
+
+    res=$(diff -s dump-life-seq-dim-$s-iter-$i.png dump-life-$using-dim-$s-iter-$i.png | cut -d " " -f 6);
+    echo $res
+    if [ "$res" = "differ" ]; then
+        break;
+    fi
 done
+
+echo "done"

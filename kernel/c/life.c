@@ -270,7 +270,7 @@ static void wakeup_around(int x, int y) {
   }
 }
 
-static int do_tile_lazy(int x, int y, int width, int height, int who) {
+int do_tile_lazy(int x, int y, int width, int height, int who) {
   int r = 0;
   if (get_tile_from_pixel(x, y) >= AWAKE) {
     monitoring_start_tile(who);
@@ -303,10 +303,11 @@ unsigned life_compute_tiled_omp_lazy(unsigned nb_iter) {
     unsigned change = 0;
 #pragma omp parallel
     {
-#pragma omp for collapse(2) reduction(| : change) schedule(runtime) nowait
+#pragma omp for collapse(2) reduction(|:change) schedule(static,1)
       for (y = 0; y < DIM; y += TILE_H)
-        for (x = 0; x < DIM; x += TILE_W)
+        for (x = 0; x < DIM; x += TILE_W) {
           change |= do_tile_lazy(x, y, TILE_W, TILE_H, omp_get_thread_num());
+        }
     }
 
     swap_tables();
