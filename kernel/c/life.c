@@ -491,7 +491,6 @@ void life_draw_stable(void) {
 void life_draw_guns(void) { at_the_four_corners("data/rle/gun.rle", 1); }
 
 void life_draw_random(void) {
-  srandom(4);
   for (int i = 1; i < DIM - 1; i++)
     for (int j = 1; j < DIM - 1; j++)
       if (random() & 1)
