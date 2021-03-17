@@ -207,8 +207,6 @@ inline enum TileState get_tile(int x, int y) {
 }
 
 inline void set_tile(int x, int y, enum TileState t) {
-//#pragma omp atomic write
-//#pragma omp critical
   active_tiles[y * NB_TILES_X + x] = t;
 }
 
@@ -258,7 +256,7 @@ static void wakeup_around(int x, int y) {
     set_tile(tx, ty + 1, INSOMNIA);
     set_tile(tx + 1, ty - 1, INSOMNIA);
     set_tile(tx + 1, ty + 1, INSOMNIA);
-  } else { // middle
+  } else { // inner
     set_tile(tx + 1, ty, INSOMNIA);
     set_tile(tx - 1, ty, INSOMNIA);
     set_tile(tx, ty + 1, INSOMNIA);
@@ -278,18 +276,18 @@ int do_tile_lazy(int x, int y, int width, int height, int who) {
     r = do_tile_reg(x, y, width, height);
 
     enum TileState newState = r == 0 ? ASLEEP : AWAKE;
-    if (newState == AWAKE) {
-      wakeup_around(x, y);
+#pragma omp critical(insomnia_lock)
+    {
+      if (newState == AWAKE) {
+        wakeup_around(x, y);
+      }
+      if (get_tile_from_pixel(x, y) == INSOMNIA) {
+        newState = AWAKE;
+      }
+      set_tile_from_pixel(x, y, newState);
     }
-
-    if (get_tile_from_pixel(x, y) == INSOMNIA) {
-      newState = AWAKE;
-    }
-    set_tile_from_pixel(x, y, newState);
 
     monitoring_end_tile(x, y, width, height, who);
-  } else {
-    set_tile_from_pixel(x, y, ASLEEP);
   }
 
   return r;
@@ -303,7 +301,7 @@ unsigned life_compute_tiled_omp_lazy(unsigned nb_iter) {
     unsigned change = 0;
 #pragma omp parallel
     {
-#pragma omp for collapse(2) reduction(|:change) schedule(static,1)
+#pragma omp for collapse(2) reduction(| : change) schedule(runtime)
       for (y = 0; y < DIM; y += TILE_H)
         for (x = 0; x < DIM; x += TILE_W) {
           change |= do_tile_lazy(x, y, TILE_W, TILE_H, omp_get_thread_num());
@@ -320,12 +318,11 @@ unsigned life_compute_tiled_omp_lazy(unsigned nb_iter) {
   return res;
 }
 
-void life_ft (void)
-{
-  #pragma omp parallel for
-    for (int i = 0; i<DIM; i++)
-      for (int j = 0; j<DIM; j+=512)
-        next_img (i,j) = cur_img(i,j) = 0; 
+void life_ft(void) {
+#pragma omp parallel for
+  for (int i = 0; i < DIM; i++)
+    for (int j = 0; j < DIM; j += 512)
+      next_img(i, j) = cur_img(i, j) = 0;
 }
 
 //////////////////////// Omp tiled lazy version with ji
@@ -494,6 +491,7 @@ void life_draw_stable(void) {
 void life_draw_guns(void) { at_the_four_corners("data/rle/gun.rle", 1); }
 
 void life_draw_random(void) {
+  srandom(4);
   for (int i = 1; i < DIM - 1; i++)
     for (int j = 1; j < DIM - 1; j++)
       if (random() & 1)
