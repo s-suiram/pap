@@ -293,7 +293,7 @@ int do_tile_lazy(int x, int y, int width, int height, int who) {
   return r;
 }
 
-unsigned life_compute_tiled_omp_lazy(unsigned nb_iter) {
+unsigned life_compute_lazy(unsigned nb_iter) {
 
   unsigned res = 0;
   int x, y;
@@ -350,7 +350,7 @@ static int do_tile_lazy_ji(int x, int y, int width, int height, int who) {
   return r;
 }
 
-unsigned life_compute_tiled_omp_lazy_ji(unsigned nb_iter) {
+unsigned life_compute_lazy_ji(unsigned nb_iter) {
 
   unsigned res = 0;
   int x, y;
