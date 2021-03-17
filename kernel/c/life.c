@@ -23,8 +23,8 @@ static inline cell_t *table_cell(cell_t *restrict i, int y, int x) {
 #define cur_table(y, x) (*table_cell(_table, (y), (x)))
 #define next_table(y, x) (*table_cell(_alternate_table, (y), (x)))
 
+// Tiles state array and enumeration
 enum TileState { AWAKE = 0, ASLEEP = -1, INSOMNIA = 1 };
-
 enum TileState *active_tiles = 0;
 
 void life_init(void) {
@@ -44,6 +44,7 @@ void life_init(void) {
 
   if (active_tiles == 0) {
     active_tiles = calloc(NB_TILES_X * NB_TILES_Y, sizeof(enum TileState));
+    // All tiles start awake
     memset(active_tiles, AWAKE,
            NB_TILES_X * NB_TILES_Y * sizeof(enum TileState));
   }
@@ -214,6 +215,8 @@ inline void set_tile_from_pixel(int x, int y, enum TileState t) {
   set_tile(x / TILE_W, y / TILE_H, t);
 }
 
+
+// Wake up 8 neighbours
 static void wakeup_around(int x, int y) {
   int tx = x / TILE_W;
   int ty = y / TILE_H;
