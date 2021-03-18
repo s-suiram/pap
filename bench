@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
 
-# rm -f ./plots/data/perf_data.csv
-# rm -f plot_previous.pdf
-# mv plot.pdf plot_previous.pdf
-# rm -f plot.pdf
+rm -f ./plots/data/perf_data.csv
+rm -f plot_previous.pdf
+mv plot.pdf plot_previous.pdf
+rm -f plot.pdf
 
 # sizes6208=(16 17 32 34 64 68 128 136 272 544)
+sizes6208=(32 64 128 256)
 
-# for h in ${sizes6208[@]}; do
-#     for w in ${sizes6208[@]}; do
-#         for nbThread in $(seq 8 16); do 
-#             OMP_NUM_THREADS=$nbThread ./run -k life -v tiled_omp -tw $w -th $h -s 2176 -a otca_off -n -i 20;
-#         done
-#     done
-# done
+for h in ${sizes6208[@]}; do
+    for w in ${sizes6208[@]}; do
+        for nbThread in $(seq 46 46); do 
+            res=$(OMP_PLACES=cores OMP_NUM_THREADS=$nbThread ./run -k life -v tiled_omp -tw $w -th $h -s 2048 -a random -n -i 50 |& tail -n 1);
+            echo "$w;$h;$res" >> gen;
+        done
+    done
+done
 
 # ./plots/easyplot.py
 
@@ -22,33 +24,33 @@
 # Script to compare each frame of two different variant of the same kernel
 ###
 
-i=1000
-s=1024
-lazy=tiled_omp_lazy
-omp=tiled_omp
-tiled=tiled
+# i=1000
+# s=1024
+# lazy=tiled_omp_lazy
+# omp=tiled_omp
+# tiled=tiled
 
-using=$lazy
+# using=$lazy
 
-try=100
+# try=100
 
-make
+# make
 
-for t in $(seq 0 $try); do
-    rm dump-life-seq-dim-*-iter-*.png;
-    rm dump-life-$using-dim-*-iter-*.png;
+# for t in $(seq 0 $try); do
+#     rm dump-life-seq-dim-*-iter-*.png;
+#     rm dump-life-$using-dim-*-iter-*.png;
 
-    ./run -k life -v seq -a random -s $s -n -i $i --dump 2> /dev/null;
-    OMP_PLACES=cores OMP_SCHEDULE="dynamic" OMP_NUM_THREADS=16 ./run -k life -a random -v $using -ts 16 -s $s -n -i $i --dump 2> /dev/null;
+#     ./run -k life -v seq -a random -s $s -n -i $i --dump 2> /dev/null;
+#     OMP_PLACES=cores OMP_SCHEDULE="dynamic" OMP_NUM_THREADS=16 ./run -k life -a random -v $using -ts 16 -s $s -n -i $i --dump 2> /dev/null;
 
-    res=$(diff -s dump-life-seq-dim-$s-iter-$i.png dump-life-$using-dim-$s-iter-$i.png | cut -d " " -f 6);
-    echo $res
-    if [ "$res" = "differ" ]; then
-        break;
-    fi
-done
+#     res=$(diff -s dump-life-seq-dim-$s-iter-$i.png dump-life-$using-dim-$s-iter-$i.png | cut -d " " -f 6);
+#     echo $res
+#     if [ "$res" = "differ" ]; then
+#         break;
+#     fi
+# done
 
-echo "done"
+# echo "done"
 
 ######################
 
