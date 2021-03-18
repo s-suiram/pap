@@ -174,7 +174,7 @@ unsigned life_compute_tiled(unsigned nb_iter) {
 
 ///////////////////////////// tiled omp
 
-unsigned life_compute_tiled_omp(unsigned nb_iter) {
+unsigned life_compute_omp(unsigned nb_iter) {
 
   unsigned res = 0;
   int x, y;
@@ -317,6 +317,12 @@ unsigned life_compute_lazy(unsigned nb_iter) {
   }
   return res;
 }
+
+// Just for plots
+unsigned life_compute_lazy_ft(unsigned nb_iter){
+ return life_compute_lazy(nb_iter);
+} 
+
 
 void life_ft(void) {
 #pragma omp parallel for
