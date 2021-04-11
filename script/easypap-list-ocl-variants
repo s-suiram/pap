@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+EASYPAPDIR=${EASYPAPDIR:-.}
+
+if [ $# != 1 ]; then
+    echo "Usage: $0 <kernel>"
+    exit 1
+fi
+
+. ${EASYPAPDIR}/script/easypap-utilities.bash
+
+_easypap_ocl_variants "$1"
+
+if [ ! -z "$ovariants" ]; then
+    echo $ovariants
+fi
+
+exit 0
