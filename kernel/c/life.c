@@ -182,10 +182,10 @@ static unsigned compute_new_state_vec(int x, int y) {
   __m256i ones = _mm256_set1_epi8(1);
   
   __m256i three_plus_cell_val = _mm256_add_epi8(cells, three);
-  __m256i or_first_part = _mm256_cmpeq_epi8(n, three_plus_cell_val);
-  __m256i or_sec_part = _mm256_cmpeq_epi8(n, three);
-  n = _mm256_or_si256(or_first_part, or_sec_part);
-  n = _mm256_and_si256(n, ones);
+  __m256i or_first_part = _mm256_cmpeq_epi8(n, three_plus_cell_val); // (n == 3 + me)
+  __m256i or_sec_part = _mm256_cmpeq_epi8(n, three); // (n == 3)
+  n = _mm256_or_si256(or_first_part, or_sec_part); // n = (n == 3 + me) | (n == 3)
+  n = _mm256_and_si256(n, ones); // A ce moment la, une cellule qui valide la condition du dessus vaut 255, grace a cette ligne on transforme les 255 en 1
   
   __m256i n_eq_cells = _mm256_cmpeq_epi8(cells, n);
   if (_mm256_movemask_epi8(n_eq_cells) != 0) change = 1;
