@@ -19,6 +19,10 @@ typedef uint8_t cell_t;
 
 static cell_t *restrict _table = NULL, *restrict _alternate_table = NULL;
 
+#define CELL_PER_VEC 32
+unsigned NB_VEC_PER_LINE = 0;
+unsigned NOT_JUST = 0;
+
 static inline cell_t *table_cell(cell_t *restrict i, int y, int x) {
   return i + y * DIM + x;
 }
@@ -41,6 +45,9 @@ void life_init(void) {
     
     _alternate_table = mmap(NULL, size, PROT_READ | PROT_WRITE,
                             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    
+    NB_VEC_PER_LINE = (DIM - 2) / CELL_PER_VEC;
+    NOT_JUST = NB_VEC_PER_LINE * 32 != DIM - 2;
   }
 }
 
@@ -158,8 +165,6 @@ unsigned life_compute_tiled(unsigned nb_iter) {
 
 // Vectorization
 
-#define CELL_PER_VEC 32
-
 static unsigned compute_new_state_vec(int x, int y) {
   unsigned change = 0;
   
@@ -196,17 +201,27 @@ unsigned life_compute_vec(unsigned nb_iter) {
     
     monitoring_start_tile(0);
     
-    for (int y = 1; y < DIM - 1; y++)
-      for (int x = 1; x < DIM - 1; x += CELL_PER_VEC) {
+    for (int y = 1; y < DIM - 1; y++) {
+      unsigned nb_line = 0;
+      int x;
+  
+      // On traite vectoriellement tant que l'on peut avoir 32 cellules consecutives
+      // NB_VEC_PER_LINE est précalculé dans le fonction life_init par rapport à la taille de la grille
+      for (x = 1; x < DIM - 1 && nb_line < NB_VEC_PER_LINE; x += CELL_PER_VEC) {
+        change |= compute_new_state_vec(x, y);
+        nb_line++;
+      }
+      
+      if (NOT_JUST) { // Si le nombre de cellule à traiter sur une ligne n'est pas un multiple de 32 (nombre de cellules par vecteur)
+        // Alors on ecoule la fin de la ligne avec la version sequenctielle
         unsigned rem_on_line = DIM - 1 - x;
-        if (rem_on_line < CELL_PER_VEC) { // opti en calculant le nombre de ligne safe à l'avance TODO
+        if (rem_on_line < CELL_PER_VEC) {
           for (int dx = 0; dx < rem_on_line; dx++) {
             change |= compute_new_state(y, x + dx);
           }
-        } else {
-          change |= compute_new_state_vec(x, y);
         }
       }
+    }
     
     monitoring_end_tile(0, 0, DIM, DIM, 0);
     
