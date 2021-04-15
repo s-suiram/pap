@@ -59,6 +59,13 @@ void lifeu_refresh_img(void) {
       cur_img (i, j) = cur_table (i, j) * color;
 }
 
+void life_refresh_img_ocl(void) {
+  cl_int err;
+  err = clEnqueueReadBuffer(queue, cur_buffer, CL_TRUE, 0, sizeof(unsigned) * DIM * DIM, image, 0, NULL, NULL);
+  check (err, "Failed to read buffer from GPU");
+  lifeu_refresh_img();
+}
+
 static inline void swap_tables(void) {
   cell_t *tmp = _table;
   
@@ -110,6 +117,50 @@ unsigned lifeu_compute_seq(unsigned nb_iter) {
   return 0;
 }
 
+cl_mem change;
+
+void lifeu_init_ocl() {
+  lifeu_init();
+  change = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(unsigned), 0, 0);
+}
+
+unsigned lifeu_invoke_ocl(unsigned nb_iter) {
+  size_t global[2] = {GPU_SIZE_X, GPU_SIZE_Y};
+  size_t local[2] = {GPU_TILE_W, GPU_TILE_H};
+  cl_int err;
+  
+  monitoring_start_tile(easypap_gpu_lane(TASK_TYPE_COMPUTE));
+  for (unsigned it = 1; it <= nb_iter; it++) {
+    
+    err = 0;
+    err |= clSetKernelArg(compute_kernel, 0, sizeof(cl_mem), &cur_buffer);
+    err |= clSetKernelArg(compute_kernel, 1, sizeof(cl_mem), &next_buffer);
+    err |= clSetKernelArg(compute_kernel, 2, sizeof(cl_mem), &change);
+    check (err, "Failed to set kernel arguments");
+    
+    err = clEnqueueNDRangeKernel(queue, compute_kernel, 2, NULL, global, local, 0, NULL, NULL);
+    check (err, "Failed to execute kernel");
+    
+    unsigned changed;
+    clEnqueueReadBuffer(queue, change, CL_TRUE, 0, sizeof(unsigned), &changed, 0, 0, 0);
+  
+    if (!changed)
+      return it;
+  }
+  
+  clFinish(queue);
+  
+  {
+    cl_mem tmp = cur_buffer;
+    cur_buffer = next_buffer;
+    next_buffer = tmp;
+  }
+  
+  monitoring_end_tile(0, 0, DIM, DIM, easypap_gpu_lane(TASK_TYPE_COMPUTE));
+  
+  return 0;
+}
+
 ///////////////////////////// Initial configs
 
 void lifeu_draw_guns(void);
@@ -125,12 +176,12 @@ static inline int get_cell(int y, int x) {
 }
 
 static void inline lifeu_rle_parse(char *filename, int x, int y,
-                                  int orientation) {
+                                   int orientation) {
   rle_lexer_parse(filename, x, y, set_cell, orientation);
 }
 
 static void inline lifeu_rle_generate(char *filename, int x, int y, int width,
-                                     int height) {
+                                      int height) {
   rle_generate(x, y, width, height, get_cell, filename);
 }
 
@@ -147,13 +198,13 @@ void lifeu_draw(char *param) {
 static void otca_autoswitch(char *name, int x, int y) {
   lifeu_rle_parse(name, x, y, RLE_ORIENTATION_NORMAL);
   lifeu_rle_parse("data/rle/autoswitch-ctrl.rle", x + 123, y + 1396,
-                 RLE_ORIENTATION_NORMAL);
+                  RLE_ORIENTATION_NORMAL);
 }
 
 static void otca_lifeu(char *name, int x, int y) {
   lifeu_rle_parse(name, x, y, RLE_ORIENTATION_NORMAL);
   lifeu_rle_parse("data/rle/b3-s23-ctrl.rle", x + 123, y + 1396,
-                 RLE_ORIENTATION_NORMAL);
+                  RLE_ORIENTATION_NORMAL);
 }
 
 static void at_the_four_corners(char *filename, int distance) {
@@ -161,7 +212,7 @@ static void at_the_four_corners(char *filename, int distance) {
   lifeu_rle_parse(filename, distance, distance, RLE_ORIENTATION_HINVERT);
   lifeu_rle_parse(filename, distance, distance, RLE_ORIENTATION_VINVERT);
   lifeu_rle_parse(filename, distance, distance,
-                 RLE_ORIENTATION_HINVERT | RLE_ORIENTATION_VINVERT);
+                  RLE_ORIENTATION_HINVERT | RLE_ORIENTATION_VINVERT);
 }
 
 // Suggested cmdline: ./run -k lifeu -s 2176 -a otca_off -ts 64 -r 10 -si
@@ -188,16 +239,16 @@ void lifeu_draw_meta3x3(void) {
   for (int i = 0; i < 3; i++)
     for (int j = 0; j < 3; j++)
       otca_lifeu(j == 1 ? "data/rle/otca-on.rle" : "data/rle/otca-off.rle",
-                1 + j * (2058 - 10), 1 + i * (2058 - 10));
+                 1 + j * (2058 - 10), 1 + i * (2058 - 10));
 }
 
 // Suggested cmdline: ./run -k lifeu -a bugs -ts 64
 void lifeu_draw_bugs(void) {
   for (int y = 16; y < DIM / 2; y += 32) {
     lifeu_rle_parse("data/rle/tagalong.rle", y + 1, y + 8,
-                   RLE_ORIENTATION_NORMAL);
+                    RLE_ORIENTATION_NORMAL);
     lifeu_rle_parse("data/rle/tagalong.rle", y + 1, (DIM - 32 - y) + 8,
-                   RLE_ORIENTATION_NORMAL);
+                    RLE_ORIENTATION_NORMAL);
   }
 }
 
@@ -205,14 +256,14 @@ void lifeu_draw_bugs(void) {
 void lifeu_draw_ship(void) {
   for (int y = 16; y < DIM / 2; y += 32) {
     lifeu_rle_parse("data/rle/tagalong.rle", y + 1, y + 8,
-                   RLE_ORIENTATION_NORMAL);
+                    RLE_ORIENTATION_NORMAL);
     lifeu_rle_parse("data/rle/tagalong.rle", y + 1, (DIM - 32 - y) + 8,
-                   RLE_ORIENTATION_NORMAL);
+                    RLE_ORIENTATION_NORMAL);
   }
   
   for (int y = 43; y < DIM - 134; y += 148) {
     lifeu_rle_parse("data/rle/greyship.rle", DIM - 100, y,
-                   RLE_ORIENTATION_NORMAL);
+                    RLE_ORIENTATION_NORMAL);
   }
 }
 
@@ -240,10 +291,10 @@ void lifeu_draw_random(void) {
 // Suggested cmdline: ./run -k lifeu -a clown -s 256 -i 110
 void lifeu_draw_clown(void) {
   lifeu_rle_parse("data/rle/clown-seed.rle", DIM / 2, DIM / 2,
-                 RLE_ORIENTATION_NORMAL);
+                  RLE_ORIENTATION_NORMAL);
 }
 
 void lifeu_draw_diehard(void) {
   lifeu_rle_parse("data/rle/diehard.rle", DIM / 2, DIM / 2,
-                 RLE_ORIENTATION_NORMAL);
+                  RLE_ORIENTATION_NORMAL);
 }
