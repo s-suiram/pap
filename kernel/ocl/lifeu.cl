@@ -18,7 +18,7 @@ __kernel void lifeu_ocl (__global unsigned *cur, __global unsigned *next, __glob
     int lx = get_local_id (0);
     int ly = get_local_id (1);
 
-    changed[ly][lx] = 0;
+    //changed[ly][lx] = 0;
 
     if (x > 0 && x < DIM - 1 && y > 0 && y < DIM - 1) {
         int n = 0;
@@ -30,7 +30,9 @@ __kernel void lifeu_ocl (__global unsigned *cur, __global unsigned *next, __glob
 
         n = (n == 3 + me) | (n == 3);
 
-        changed[ly][lx] = n != me;
+        //if (n != me) {
+        //    changed[ly][lx] |= 1;
+        //}
 
         next[y * DIM + x] = n;
     }
@@ -52,7 +54,7 @@ __kernel void lifeu_ocl (__global unsigned *cur, __global unsigned *next, __glob
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    change[0] = changed[0][0];
+    change[0] = 1;
 }
 
 

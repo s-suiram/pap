@@ -59,9 +59,9 @@ void lifeu_refresh_img(void) {
       cur_img (i, j) = cur_table (i, j) * color;
 }
 
-void life_refresh_img_ocl(void) {
+void lifeu_refresh_img_ocl(void) {
   cl_int err;
-  err = clEnqueueReadBuffer(queue, cur_buffer, CL_TRUE, 0, sizeof(unsigned) * DIM * DIM, image, 0, NULL, NULL);
+  err = clEnqueueReadBuffer(queue, cur_buffer, CL_TRUE, 0, sizeof(unsigned) * DIM * DIM, _table, 0, NULL, NULL);
   check (err, "Failed to read buffer from GPU");
   lifeu_refresh_img();
 }
@@ -144,17 +144,19 @@ unsigned lifeu_invoke_ocl(unsigned nb_iter) {
     unsigned changed;
     clEnqueueReadBuffer(queue, change, CL_TRUE, 0, sizeof(unsigned), &changed, 0, 0, 0);
   
+    {
+      cl_mem tmp = cur_buffer;
+      cur_buffer = next_buffer;
+      next_buffer = tmp;
+    }
+    
     if (!changed)
       return it;
   }
   
   clFinish(queue);
   
-  {
-    cl_mem tmp = cur_buffer;
-    cur_buffer = next_buffer;
-    next_buffer = tmp;
-  }
+  
   
   monitoring_end_tile(0, 0, DIM, DIM, easypap_gpu_lane(TASK_TYPE_COMPUTE));
   

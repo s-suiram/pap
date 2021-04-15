@@ -5,7 +5,7 @@ rm *.png
 make
 clear
 
-./run -k life -v vec_seq       -ts 194 -s 6208 -du -n -i $1 -a meta3x3
-./run -k life -v vec_omp_tiled -ts 194 -s 6208 -du -n -i $1 -a meta3x3
+./run -k lifec -v vec_omp_tiled -s 6208 -du -n -i $1 -a meta3x3
+./run -k lifeu -o -s 6208 -du -n -i $1 -a meta3x3
 diff *.png
 
