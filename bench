@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+rm *.png
+./run -k life -v seq -ts 64 -s 1024 -du -n -i $1 -a random
+./run -k life -v vec_omp_tiled -ts 64 -s 1024 -du -n -i $1 -a random
+diff *.png
+
