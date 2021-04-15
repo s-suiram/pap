@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 rm *.png
-./run -k life -v seq -ts 64 -s 1024 -du -n -i $1 -a random
-./run -k life -v vec_omp_tiled -ts 64 -s 1024 -du -n -i $1 -a random
+./run -k life -v vec_seq       -ts 194 -s 6208 -du -n -i $1 -a meta3x3
+./run -k life -v vec_omp_tiled -ts 194 -s 6208 -du -n -i $1 -a meta3x3
 diff *.png
 
