@@ -53,7 +53,7 @@ MAKEFILES	:= Makefile
 CC			:= gcc
 #CC			:= clang-mp-11
 
-CFLAGS 		+= -O3 -g -march=native -Wall -Wno-unused-function
+CFLAGS 		+= -O3 -march=native -Wall -Wno-unused-function
 CFLAGS		+= -I./include -I./traces/include
 LDLIBS		+= -lm
 
