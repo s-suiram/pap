@@ -156,8 +156,6 @@ unsigned lifeu_invoke_ocl(unsigned nb_iter) {
   
   clFinish(queue);
   
-  
-  
   monitoring_end_tile(0, 0, DIM, DIM, easypap_gpu_lane(TASK_TYPE_COMPUTE));
   
   return 0;

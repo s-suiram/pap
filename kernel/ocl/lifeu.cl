@@ -18,8 +18,6 @@ __kernel void lifeu_ocl (__global unsigned *cur, __global unsigned *next, __glob
     int lx = get_local_id (0);
     int ly = get_local_id (1);
 
-    //changed[ly][lx] = 0;
-
     if (x > 0 && x < DIM - 1 && y > 0 && y < DIM - 1) {
         int n = 0;
         int me = cur[y * DIM + x];
@@ -30,11 +28,13 @@ __kernel void lifeu_ocl (__global unsigned *cur, __global unsigned *next, __glob
 
         n = (n == 3 + me) | (n == 3);
 
-        //if (n != me) {
-        //    changed[ly][lx] |= 1;
-        //}
+        if (n != me) {
+            changed[ly][lx] |= 1;
+        }
 
         next[y * DIM + x] = n;
+    } else {
+        changed[ly][lx] = 0;
     }
 
     for (int d = GPU_TILE_W >> 1; d > 0; d >>= 1) {
@@ -54,36 +54,5 @@ __kernel void lifeu_ocl (__global unsigned *cur, __global unsigned *next, __glob
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    change[0] = 1;
+    change[0] |= changed[0][0];
 }
-
-
-//__kernel void pixelize_ocl (__global unsigned *in)
-//{
-//  __local int4 tile[GPU_TILE_H][GPU_TILE_W];
-//  int x = get_global_id (0);
-//  int y = get_global_id (1);
-//  int xloc = get_local_id (0);
-//  int yloc = get_local_id (1);
-//
-//  tile[yloc][xloc] = color_to_int4(in[y * DIM + x]);
-//
-//  for (int d = GPU_TILE_W >> 1; d > 0; d >>= 1) {
-//    barrier(CLK_LOCAL_MEM_FENCE);
-//    if (xloc < d) {
-//      tile[yloc][xloc] += tile[yloc][xloc + d];
-//    }
-//  }
-//
-//
-//  for (int d = GPU_TILE_H >> 1; d > 0; d >>= 1) {
-//    barrier(CLK_LOCAL_MEM_FENCE);
-//    if (xloc == 0 && yloc < d) {
-//      tile[yloc][xloc] += tile[yloc + d][xloc];
-//    }
-//  }
-//
-//  barrier (CLK_LOCAL_MEM_FENCE);
-//
-//  in [y * DIM + x] = int4_to_color(tile[0][0] / (int4)(GPU_TILE_W * GPU_TILE_H));
-//}
