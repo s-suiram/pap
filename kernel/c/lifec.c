@@ -91,18 +91,14 @@ static int compute_new_state(int y, int x) {
   cell_t me = cur_table (y, x) != 0;
   unsigned change = 0;
   
-  if (x > 0 && x < DIM - 1 && y > 0 && y < DIM - 1) {
-    
-    for (int i = y - 1; i <= y + 1; i++)
-      for (int j = x - 1; j <= x + 1; j++)
-        n += cur_table (i, j);
-    
-    n = (n == 3 + me) | (n == 3);
-    if (n != me)
-      change |= 1;
-    
-    next_table (y, x) = n;
-  }
+  for (int i = y - 1; i <= y + 1; i++)
+    for (int j = x - 1; j <= x + 1; j++)
+      n += cur_table (i, j);
+  
+  n = (n == 3 + me) | (n == 3);
+  change |= n != me;
+  
+  next_table (y, x) = n;
   
   return change;
 }
@@ -113,8 +109,8 @@ unsigned lifec_compute_seq(unsigned nb_iter) {
     
     monitoring_start_tile(0);
     
-    for (int i = 0; i < DIM; i++)
-      for (int j = 0; j < DIM; j++)
+    for (int i = 1; i < DIM - 1; i++)
+      for (int j = 1; j < DIM - 1; j++)
         change |= compute_new_state(i, j);
     
     monitoring_end_tile(0, 0, DIM, DIM, 0);
@@ -219,6 +215,14 @@ static int do_tile(int x, int y, int width, int height, int who) {
   
   monitoring_start_tile(who);
   
+  x += x == 0;
+  y += y == 0;
+  width -= x == 0;
+  height -= y == 0;
+  
+  width -= x == DIM - TILE_W;
+  height -= y == DIM - TILE_H;
+  
   r = do_tile_reg(x, y, width, height);
   
   monitoring_end_tile(x, y, width, height, who);
@@ -248,6 +252,13 @@ unsigned lifec_compute_omp_tiled(unsigned nb_iter) {
 }
 
 ///////////////////////////// Lazy tiled vec omp version (tiled)
+
+void lifec_ft_vec_omp_tiled(void) {
+#pragma omp parallel for collapse(2) schedule(runtime)
+  for (int y = 0; y < DIM; y += TILE_H)
+    for (int x = 0; x < DIM; x += TILE_W)
+      next_table(y, x) = cur_table(y, x) = 0;
+}
 
 static enum TileState get_tile_from_pixel(int x, int y) {
   return active_tiles[(y / TILE_H) * NB_TILES_X + (x / TILE_W)];
@@ -347,7 +358,6 @@ static int compute_new_state_vec_omp(int x, int y) {
   change = UINT32_MAX - _mm256_movemask_epi8(n_eq_cells);
   
   _mm256_storeu_si256((__m256i_u *) &next_table(y, x), n);
-  
   return change;
 }
 
@@ -434,12 +444,12 @@ static inline int get_cell(int y, int x) {
 }
 
 static void inline lifec_rle_parse(char *filename, int x, int y,
-                                  int orientation) {
+                                   int orientation) {
   rle_lexer_parse(filename, x, y, set_cell, orientation);
 }
 
 static void inline lifec_rle_generate(char *filename, int x, int y, int width,
-                                     int height) {
+                                      int height) {
   rle_generate(x, y, width, height, get_cell, filename);
 }
 
@@ -456,13 +466,13 @@ void lifec_draw(char *param) {
 static void otca_autoswitch(char *name, int x, int y) {
   lifec_rle_parse(name, x, y, RLE_ORIENTATION_NORMAL);
   lifec_rle_parse("data/rle/autoswitch-ctrl.rle", x + 123, y + 1396,
-                 RLE_ORIENTATION_NORMAL);
+                  RLE_ORIENTATION_NORMAL);
 }
 
 static void otca_lifec(char *name, int x, int y) {
   lifec_rle_parse(name, x, y, RLE_ORIENTATION_NORMAL);
   lifec_rle_parse("data/rle/b3-s23-ctrl.rle", x + 123, y + 1396,
-                 RLE_ORIENTATION_NORMAL);
+                  RLE_ORIENTATION_NORMAL);
 }
 
 static void at_the_four_corners(char *filename, int distance) {
@@ -470,7 +480,7 @@ static void at_the_four_corners(char *filename, int distance) {
   lifec_rle_parse(filename, distance, distance, RLE_ORIENTATION_HINVERT);
   lifec_rle_parse(filename, distance, distance, RLE_ORIENTATION_VINVERT);
   lifec_rle_parse(filename, distance, distance,
-                 RLE_ORIENTATION_HINVERT | RLE_ORIENTATION_VINVERT);
+                  RLE_ORIENTATION_HINVERT | RLE_ORIENTATION_VINVERT);
 }
 
 // Suggested cmdline: ./run -k lifec -s 2176 -a otca_off -ts 64 -r 10 -si
@@ -497,16 +507,16 @@ void lifec_draw_meta3x3(void) {
   for (int i = 0; i < 3; i++)
     for (int j = 0; j < 3; j++)
       otca_lifec(j == 1 ? "data/rle/otca-on.rle" : "data/rle/otca-off.rle",
-                1 + j * (2058 - 10), 1 + i * (2058 - 10));
+                 1 + j * (2058 - 10), 1 + i * (2058 - 10));
 }
 
 // Suggested cmdline: ./run -k lifec -a bugs -ts 64
 void lifec_draw_bugs(void) {
   for (int y = 16; y < DIM / 2; y += 32) {
     lifec_rle_parse("data/rle/tagalong.rle", y + 1, y + 8,
-                   RLE_ORIENTATION_NORMAL);
+                    RLE_ORIENTATION_NORMAL);
     lifec_rle_parse("data/rle/tagalong.rle", y + 1, (DIM - 32 - y) + 8,
-                   RLE_ORIENTATION_NORMAL);
+                    RLE_ORIENTATION_NORMAL);
   }
 }
 
@@ -514,14 +524,14 @@ void lifec_draw_bugs(void) {
 void lifec_draw_ship(void) {
   for (int y = 16; y < DIM / 2; y += 32) {
     lifec_rle_parse("data/rle/tagalong.rle", y + 1, y + 8,
-                   RLE_ORIENTATION_NORMAL);
+                    RLE_ORIENTATION_NORMAL);
     lifec_rle_parse("data/rle/tagalong.rle", y + 1, (DIM - 32 - y) + 8,
-                   RLE_ORIENTATION_NORMAL);
+                    RLE_ORIENTATION_NORMAL);
   }
   
   for (int y = 43; y < DIM - 134; y += 148) {
     lifec_rle_parse("data/rle/greyship.rle", DIM - 100, y,
-                   RLE_ORIENTATION_NORMAL);
+                    RLE_ORIENTATION_NORMAL);
   }
 }
 
@@ -549,10 +559,10 @@ void lifec_draw_random(void) {
 // Suggested cmdline: ./run -k lifec -a clown -s 256 -i 110
 void lifec_draw_clown(void) {
   lifec_rle_parse("data/rle/clown-seed.rle", DIM / 2, DIM / 2,
-                 RLE_ORIENTATION_NORMAL);
+                  RLE_ORIENTATION_NORMAL);
 }
 
 void lifec_draw_diehard(void) {
   lifec_rle_parse("data/rle/diehard.rle", DIM / 2, DIM / 2,
-                 RLE_ORIENTATION_NORMAL);
+                  RLE_ORIENTATION_NORMAL);
 }

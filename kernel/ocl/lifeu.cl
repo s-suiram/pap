@@ -28,13 +28,9 @@ __kernel void lifeu_ocl (__global unsigned *cur, __global unsigned *next, __glob
 
         n = (n == 3 + me) | (n == 3);
 
-        if (n != me) {
-            changed[ly][lx] |= 1;
-        }
+        changed[ly][lx] |= n != me;
 
         next[y * DIM + x] = n;
-    } else {
-        changed[ly][lx] = 0;
     }
 
     for (int d = GPU_TILE_W >> 1; d > 0; d >>= 1) {

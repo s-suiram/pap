@@ -80,18 +80,14 @@ static int compute_new_state(int y, int x) {
   cell_t me = cur_table (y, x) != 0;
   unsigned change = 0;
   
-  if (x > 0 && x < DIM - 1 && y > 0 && y < DIM - 1) {
-    
-    for (int i = y - 1; i <= y + 1; i++)
-      for (int j = x - 1; j <= x + 1; j++)
-        n += cur_table (i, j);
-    
-    n = (n == 3 + me) | (n == 3);
-    if (n != me)
-      change |= 1;
-    
-    next_table (y, x) = n;
-  }
+  for (int i = y - 1; i <= y + 1; i++)
+    for (int j = x - 1; j <= x + 1; j++)
+      n += cur_table (i, j);
+  
+  n = (n == 3 + me) | (n == 3);
+  change |= n != me;
+  
+  next_table (y, x) = n;
   
   return change;
 }
@@ -102,8 +98,8 @@ unsigned lifeu_compute_seq(unsigned nb_iter) {
     
     monitoring_start_tile(0);
     
-    for (int i = 0; i < DIM; i++)
-      for (int j = 0; j < DIM; j++)
+    for (int i = 1; i < DIM - 1; i++)
+      for (int j = 1; j < DIM - 1; j++)
         change |= compute_new_state(i, j);
     
     monitoring_end_tile(0, 0, DIM, DIM, 0);
@@ -143,15 +139,13 @@ unsigned lifeu_invoke_ocl(unsigned nb_iter) {
     
     unsigned changed;
     clEnqueueReadBuffer(queue, change, CL_TRUE, 0, sizeof(unsigned), &changed, 0, 0, 0);
-  
-    {
-      cl_mem tmp = cur_buffer;
-      cur_buffer = next_buffer;
-      next_buffer = tmp;
-    }
-    
     if (!changed)
       return it;
+    
+    cl_mem tmp = cur_buffer;
+    cur_buffer = next_buffer;
+    next_buffer = tmp;
+    
   }
   
   clFinish(queue);
