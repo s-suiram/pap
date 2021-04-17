@@ -2,7 +2,7 @@
 
 // DO NOT MODIFY: this kernel updates the OpenGL texture buffer
  // This is a life-specific version (generic version is defined in common.cl)
-__kernel void lifeu_update_texture (__global unsigned *cur, __write_only image2d_t tex)
+__kernel void life_ocl_update_texture (__global unsigned *cur, __write_only image2d_t tex)
 {
     int y = get_global_id (1);
     int x = get_global_id (0);
@@ -10,7 +10,7 @@ __kernel void lifeu_update_texture (__global unsigned *cur, __write_only image2d
     write_imagef (tex, (int2)(x, y), color_scatter (cur [y * DIM + x] * 0xFFFF00FF));
 }
 
-__kernel void lifeu_ocl (__global unsigned *cur, __global unsigned *next, __global unsigned *change)
+__kernel void life_ocl_ocl (__global unsigned *cur, __global unsigned *next, __global unsigned *change)
 {
     __local unsigned changed[GPU_TILE_H][GPU_TILE_W];
     int x = get_global_id(0);

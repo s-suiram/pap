@@ -20,8 +20,6 @@ typedef uint8_t cell_t;
 static cell_t *restrict _table = NULL, *restrict _alternate_table = NULL;
 
 #define CELL_PER_VEC 32
-unsigned NB_VEC_PER_LINE_SEQ = 0;
-unsigned NOT_JUST_SEQ = 0;
 
 static inline cell_t *table_cell(cell_t *restrict i, int y, int x) {
   return i + y * DIM + x;
@@ -35,17 +33,6 @@ static inline cell_t *table_cell(cell_t *restrict i, int y, int x) {
 // Tiles state array and enumeration
 enum TileState { AWAKE = 0, ASLEEP = -1, INSOMNIA = 1 };
 enum TileState *active_tiles = 0;
-
-void display_vec(__m256i v) {
-  char tmp[32];
-  
-  _mm256_storeu_si256((__m256i *) tmp, v);
-  
-  for (int i = 0; i < 32; i++)
-    printf("%X, ", tmp[i]);
-  printf("\n");
-  fflush(stdout);
-}
 
 void life_vec_init(void) {
   // life_vec_init may be (indirectly) called several times so we check if data were
@@ -61,9 +48,6 @@ void life_vec_init(void) {
     
     _alternate_table = mmap(NULL, size, PROT_READ | PROT_WRITE,
                             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    
-    NB_VEC_PER_LINE_SEQ = (DIM - 2) / CELL_PER_VEC;
-    NOT_JUST_SEQ = NB_VEC_PER_LINE_SEQ * CELL_PER_VEC != DIM - 2;
     
     if (active_tiles == 0) {
       active_tiles = calloc(NB_TILES_X * NB_TILES_Y, sizeof(enum TileState));
@@ -281,7 +265,7 @@ unsigned life_vec_compute_vec_tiled(unsigned nb_iter) {
 
 void life_vec_ft_vec_omp_tiled_lazy(void) {
 #pragma omp parallel for collapse(2) schedule(runtime)
-  for (int y = 0; y < DIM; y += TILE_H)
+  for (int y = 0; y < DIM; y++)
     for (int x = 0; x < DIM; x += TILE_W)
       next_table(y, x) = cur_table(y, x) = 0;
 }

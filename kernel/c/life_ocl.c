@@ -128,6 +128,9 @@ unsigned life_ocl_invoke_ocl(unsigned nb_iter) {
   monitoring_start_tile(easypap_gpu_lane(TASK_TYPE_COMPUTE));
   for (unsigned it = 1; it <= nb_iter; it++) {
     
+    unsigned changed = 0;
+    clEnqueueWriteBuffer(queue, change, CL_TRUE, 0, sizeof(unsigned), &changed, 0, 0, 0);
+    
     err = 0;
     err |= clSetKernelArg(compute_kernel, 0, sizeof(cl_mem), &cur_buffer);
     err |= clSetKernelArg(compute_kernel, 1, sizeof(cl_mem), &next_buffer);
@@ -137,7 +140,6 @@ unsigned life_ocl_invoke_ocl(unsigned nb_iter) {
     err = clEnqueueNDRangeKernel(queue, compute_kernel, 2, NULL, global, local, 0, NULL, NULL);
     check (err, "Failed to execute kernel");
     
-    unsigned changed;
     clEnqueueReadBuffer(queue, change, CL_TRUE, 0, sizeof(unsigned), &changed, 0, 0, 0);
     if (!changed)
       return it;
@@ -170,12 +172,12 @@ static inline int get_cell(int y, int x) {
 }
 
 static void inline life_ocl_rle_parse(char *filename, int x, int y,
-                                   int orientation) {
+                                      int orientation) {
   rle_lexer_parse(filename, x, y, set_cell, orientation);
 }
 
 static void inline life_ocl_rle_generate(char *filename, int x, int y, int width,
-                                      int height) {
+                                         int height) {
   rle_generate(x, y, width, height, get_cell, filename);
 }
 
@@ -192,13 +194,13 @@ void life_ocl_draw(char *param) {
 static void otca_autoswitch(char *name, int x, int y) {
   life_ocl_rle_parse(name, x, y, RLE_ORIENTATION_NORMAL);
   life_ocl_rle_parse("data/rle/autoswitch-ctrl.rle", x + 123, y + 1396,
-                  RLE_ORIENTATION_NORMAL);
+                     RLE_ORIENTATION_NORMAL);
 }
 
 static void otca_life_ocl(char *name, int x, int y) {
   life_ocl_rle_parse(name, x, y, RLE_ORIENTATION_NORMAL);
   life_ocl_rle_parse("data/rle/b3-s23-ctrl.rle", x + 123, y + 1396,
-                  RLE_ORIENTATION_NORMAL);
+                     RLE_ORIENTATION_NORMAL);
 }
 
 static void at_the_four_corners(char *filename, int distance) {
@@ -206,7 +208,7 @@ static void at_the_four_corners(char *filename, int distance) {
   life_ocl_rle_parse(filename, distance, distance, RLE_ORIENTATION_HINVERT);
   life_ocl_rle_parse(filename, distance, distance, RLE_ORIENTATION_VINVERT);
   life_ocl_rle_parse(filename, distance, distance,
-                  RLE_ORIENTATION_HINVERT | RLE_ORIENTATION_VINVERT);
+                     RLE_ORIENTATION_HINVERT | RLE_ORIENTATION_VINVERT);
 }
 
 // Suggested cmdline: ./run -k life_ocl -s 2176 -a otca_off -ts 64 -r 10 -si
@@ -233,16 +235,16 @@ void life_ocl_draw_meta3x3(void) {
   for (int i = 0; i < 3; i++)
     for (int j = 0; j < 3; j++)
       otca_life_ocl(j == 1 ? "data/rle/otca-on.rle" : "data/rle/otca-off.rle",
-                 1 + j * (2058 - 10), 1 + i * (2058 - 10));
+                    1 + j * (2058 - 10), 1 + i * (2058 - 10));
 }
 
 // Suggested cmdline: ./run -k life_ocl -a bugs -ts 64
 void life_ocl_draw_bugs(void) {
   for (int y = 16; y < DIM / 2; y += 32) {
     life_ocl_rle_parse("data/rle/tagalong.rle", y + 1, y + 8,
-                    RLE_ORIENTATION_NORMAL);
+                       RLE_ORIENTATION_NORMAL);
     life_ocl_rle_parse("data/rle/tagalong.rle", y + 1, (DIM - 32 - y) + 8,
-                    RLE_ORIENTATION_NORMAL);
+                       RLE_ORIENTATION_NORMAL);
   }
 }
 
@@ -250,14 +252,14 @@ void life_ocl_draw_bugs(void) {
 void life_ocl_draw_ship(void) {
   for (int y = 16; y < DIM / 2; y += 32) {
     life_ocl_rle_parse("data/rle/tagalong.rle", y + 1, y + 8,
-                    RLE_ORIENTATION_NORMAL);
+                       RLE_ORIENTATION_NORMAL);
     life_ocl_rle_parse("data/rle/tagalong.rle", y + 1, (DIM - 32 - y) + 8,
-                    RLE_ORIENTATION_NORMAL);
+                       RLE_ORIENTATION_NORMAL);
   }
   
   for (int y = 43; y < DIM - 134; y += 148) {
     life_ocl_rle_parse("data/rle/greyship.rle", DIM - 100, y,
-                    RLE_ORIENTATION_NORMAL);
+                       RLE_ORIENTATION_NORMAL);
   }
 }
 
@@ -285,10 +287,10 @@ void life_ocl_draw_random(void) {
 // Suggested cmdline: ./run -k life_ocl -a clown -s 256 -i 110
 void life_ocl_draw_clown(void) {
   life_ocl_rle_parse("data/rle/clown-seed.rle", DIM / 2, DIM / 2,
-                  RLE_ORIENTATION_NORMAL);
+                     RLE_ORIENTATION_NORMAL);
 }
 
 void life_ocl_draw_diehard(void) {
   life_ocl_rle_parse("data/rle/diehard.rle", DIM / 2, DIM / 2,
-                  RLE_ORIENTATION_NORMAL);
+                     RLE_ORIENTATION_NORMAL);
 }
