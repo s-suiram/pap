@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+rm *.png
+
+make
+clear
+
+#./run -k life_vec -v seq -a meta3x3 -s 6208 -n -i $1 -du
+./run -k life_vec -v vec_seq -a meta3x3 -s 6208 -n -i $1 -du
+#./run -k life_vec -v vec_tiled -a meta3x3 -s 6208 -n -i $1 -du
+./run -k life_vec -v vec_omp_tiled_lazy -a meta3x3 -s 6208 -ts 194 -n -i $1 -du
+diff *.png
