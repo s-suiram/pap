@@ -171,24 +171,20 @@ static unsigned compute_new_state_vec(int x, int y, int size) {
   
   __m256i n_eq_cells = _mm256_cmpeq_epi8(cells, n);
   change = UINT32_MAX - _mm256_movemask_epi8(n_eq_cells);
-
-#pragma omp critical(write_on_next)
-  {
-    
-    __m256i next_cells = _mm256_lddqu_si256((const __m256i *) &next_table(y, x));
-    next_cells = _mm256_and_si256(next_cells, anti_mask);
-    
-    n = _mm256_and_si256(n, mask);
-    n = _mm256_add_epi8(next_cells, n);
-    
-    __m256i gt_one = _mm256_cmpgt_epi8(n, ones);
-    __m256i eq_one = _mm256_cmpeq_epi8(n, ones);
-    __m256i alive = _mm256_or_si256(gt_one, eq_one);
-    
-    n = _mm256_and_si256(alive, ones);
-    
-    _mm256_storeu_si256((__m256i_u *) &next_table(y, x), n);
-  }
+  
+  __m256i next_cells = _mm256_lddqu_si256((const __m256i *) &next_table(y, x));
+  next_cells = _mm256_and_si256(next_cells, anti_mask);
+  
+  n = _mm256_and_si256(n, mask);
+  n = _mm256_add_epi8(next_cells, n);
+  
+  __m256i gt_one = _mm256_cmpgt_epi8(n, ones);
+  __m256i eq_one = _mm256_cmpeq_epi8(n, ones);
+  __m256i alive = _mm256_or_si256(gt_one, eq_one);
+  
+  n = _mm256_and_si256(alive, ones);
+  
+  _mm256_storeu_si256((__m256i_u *) &next_table(y, x), n);
   
   return change;
 }
@@ -361,11 +357,63 @@ static void wakeup_around(int x, int y) {
   }
 }
 
+static int compute_new_state_vec_omp(int x, int y) {
+  int change = 0;
+  
+  __m256i n = _mm256_setzero_si256();
+  
+  for (int dy = y - 1; dy <= y + 1; dy++) {
+    for (int dx = x - 1; dx <= x + 1; dx++) {
+      __m256i n_line = _mm256_lddqu_si256((const __m256i *) &cur_table(dy, dx));
+      n = _mm256_add_epi8(n, n_line);
+    }
+  }
+  
+  __m256i cells = _mm256_lddqu_si256((const __m256i *) &cur_table(y, x));
+  __m256i three = _mm256_set1_epi8(3);
+  __m256i ones = _mm256_set1_epi8(1);
+  
+  __m256i three_plus_cell_val = _mm256_add_epi8(cells, three);
+  __m256i or_first_part = _mm256_cmpeq_epi8(n, three_plus_cell_val); // (n == 3 + me)
+  __m256i or_sec_part = _mm256_cmpeq_epi8(n, three); // (n == 3)
+  n = _mm256_or_si256(or_first_part, or_sec_part); // n = (n == 3 + me) | (n == 3)
+  // A ce moment la, une cellule qui valide la condition du dessus vaut 255, grace a cette ligne on transforme les 255 en 1
+  n = _mm256_and_si256(n, ones);
+  
+  __m256i n_eq_cells = _mm256_cmpeq_epi8(cells, n);
+  change = UINT32_MAX - _mm256_movemask_epi8(n_eq_cells);
+  
+  _mm256_storeu_si256((__m256i_u *) &next_table(y, x), n);
+  return change;
+}
+
+static int do_tile_reg_vec(int x, int y, int width, int height) {
+  int change = 0;
+  
+  x += x == 0;
+  y += y == 0;
+  x -= x == DIM - TILE_W;
+  y -= y == DIM - TILE_H;
+  
+  for (int dy = y; dy < y + height; dy++) {
+    int remaining = width;
+    int dx = x;
+    do {
+      int advance = min(CELL_PER_VEC, remaining);
+      change |= compute_new_state_vec_omp(dx, dy);
+      dx += advance;
+      remaining -= advance;
+    } while (remaining);
+  }
+  return change;
+}
+
 static int do_tile_vec(int x, int y, int width, int height, int who) {
   int r = 0;
   if (get_tile_from_pixel(x, y) >= AWAKE) {
+    monitoring_start_tile(who);
     
-    r = do_tile(x, y, width, height, who);
+    r = do_tile_reg_vec(x, y, width, height);
     
     enum TileState newState = r == 0 ? ASLEEP : AWAKE;
 #pragma omp critical(insomnia_lock)
@@ -378,6 +426,8 @@ static int do_tile_vec(int x, int y, int width, int height, int who) {
       }
       set_tile_from_pixel(x, y, newState);
     }
+    
+    monitoring_end_tile(x, y, width, height, who);
   }
   
   return r;
