@@ -1,71 +1,28 @@
 #!/usr/bin/env bash
 
-
 make -j 12
 
-VERSIONS=(
-  "seq"
-  "vec_seq"
-  "vec_tiled"
-  "vec_omp_tiled_lazy"
+variants=(
+  seq
+  vec_seq
+  vec_tiled
+  vec_omp_tiled_lazy
 )
 
-tileWidths=(32 64 128)
-tileHeights=(16 32 64 128)
-size=1024
-iter=700
-i=3
-threads=(1 5 12 16)
-nbThread=20
-#threads=(1 10 20 30 40 46)
+iter=100
+threads=$(seq 1 48)
 
-############## vec_tiled
-
-#rm -f plots/data/perf_data.csv
-#
-#for i in $(seq 1 $i); do
-#  for w in ${tileWidths[*]}; do
-#    for h in ${tileHeights[*]}; do
-#      ./run -k life_vec -v vec_tiled -tw $w -th $h -s $size -n -i $iter -a random
-#    done
-#  done
-#done
-#
-#plots/easyplot.py -y time
-#mv plot.pdf vec_tiled.pdf
-
-############## Lazy tiled vec omp
-
-#rm -f plots/data/perf_data.csv
-#
-#
-#for i in $(seq 1 $i); do
-#  for nbThread in ${threads[*]}; do
-#    for w in ${tileWidths[*]}; do
-#      for h in ${tileHeights[*]}; do
-#        OMP_PLACES=cores OMP_NUM_THREADS=$nbThread ./run -k life_vec -v vec_omp_tiled_lazy -tw $w -th $h -s $size -n -i $iter -ft -a random
-#      done
-#    done
-#  done
-#done
-#
-#plots/easyplot.py -y time
-#mv plot.pdf omp_vec_tiled_lazy.pdf
-
-############# Scheduling
-
-schedule=("dynamic" "static" "static,1")
 rm -f plots/data/perf_data.csv
 
-for i in $(seq 1 $i); do
-  for s in ${schedule[*]}; do
-    for w in ${tileWidths[*]}; do
-      for h in ${tileHeights[*]}; do
-        OMP_PLACES=cores OMP_NUM_THREADS=$nbThread OMP_SCHEDULE=$s ./run -k life_vec -v vec_omp_tiled_lazy -tw $w -th $h -s $size -n -i $iter -ft -a random
-      done
-    done
+for t in ${threads[*]}; do
+  for v in ${variants[*]}; do
+    OMP_PLACES=cores OMP_NUM_THREADS=$t OMP_SCHEDULE=static ./run -k life_vec -v $v -tw 388 -th 388 -s 6208 -n -i $iter -a meta3x3;
   done
 done
 
-plots/easyplot.py -y time
-mv plot.pdf omp_vec_tiled_lazy.pdf
+for t in ${threads[*]}; do
+  OMP_NUM_THREADS=$t ./run -k life_ocl -o -tw 388 -th 388 -s 6208 -n -i $iter -a meta3x3;q
+done
+
+plots/easyplot.py
+mv plot.pdf speedup.pdf

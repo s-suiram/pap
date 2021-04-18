@@ -22,24 +22,20 @@ static cell_t *restrict _table = NULL, *restrict _alternate_table = NULL;
 #define CELL_PER_VEC 32
 
 static inline cell_t *table_cell(cell_t *restrict i, int y, int x) {
-  return i + y * DIM + x;
+  return i + y * (DIM + CELL_PER_VEC) + x; // On prend le padding en compte
 }
 
-// This kernel does not directly work on cur_img/next_img.
-// Instead, we use 2D arrays of boolean values, not colors
 #define cur_table(y, x) (*table_cell (_table, (y), (x)))
 #define next_table(y, x) (*table_cell (_alternate_table, (y), (x)))
 
-// Tiles state array and enumeration
+// Structure de donnees pour l'evaluation lazy
 enum TileState { AWAKE = 0, ASLEEP = -1, INSOMNIA = 1 };
 enum TileState *active_tiles = 0;
 
 void life_vec_init(void) {
-  // life_vec_init may be (indirectly) called several times so we check if data were
-  // already allocated
   if (_table == NULL) {
-    const unsigned size = DIM * DIM * sizeof(cell_t) + CELL_PER_VEC
-        * sizeof(cell_t); // To prevent segfault at the bottom right tile when loading 32 bottom right neighbors in a vector
+    const unsigned size = (DIM + CELL_PER_VEC) * DIM
+        * sizeof(cell_t); // On applique un padding sur chaque ligne pour inhiber les effets du calcul vectoriel s'il dépasse de la limite de la grille
     
     PRINT_DEBUG ('u', "Memory footprint = 2 x %d bytes\n", size);
     
@@ -49,24 +45,18 @@ void life_vec_init(void) {
     _alternate_table = mmap(NULL, size, PROT_READ | PROT_WRITE,
                             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     
-    if (active_tiles == 0) {
-      active_tiles = calloc(NB_TILES_X * NB_TILES_Y, sizeof(enum TileState));
-      // All tiles start awake
-      memset(active_tiles, AWAKE,
-             NB_TILES_X * NB_TILES_Y * sizeof(enum TileState));
-    }
+    active_tiles = calloc(NB_TILES_X * NB_TILES_Y, sizeof(enum TileState));
   }
 }
 
 void life_vec_finalize(void) {
-  const unsigned size = DIM * DIM * sizeof(cell_t);
+  const unsigned size = (DIM + CELL_PER_VEC) * DIM * sizeof(cell_t);
   
   munmap(_table, size);
   munmap(_alternate_table, size);
   free(active_tiles);
 }
 
-// This function is called whenever the graphical window needs to be refreshed
 void life_vec_refresh_img(void) {
   for (int i = 0; i < DIM; i++)
     for (int j = 0; j < DIM; j++)
@@ -123,17 +113,14 @@ unsigned life_vec_compute_seq(unsigned nb_iter) {
 // Sequential Vectorization
 ////
 
-static unsigned compute_new_state_vec(int x, int y, int size) {
-  unsigned change = 0;
+static int compute_new_state_vec(int x, int y, int size) {
+  int change = 0;
   
   char mask_arr[CELL_PER_VEC] = {0};
-  char anti_mask_arr[CELL_PER_VEC] = {0};
   memset(mask_arr, 0xFF, size);
-  memset(anti_mask_arr + size, 0xFF, CELL_PER_VEC - size);
   
-  __m256i n = _mm256_setzero_si256();
   __m256i mask = _mm256_lddqu_si256((const __m256i *) mask_arr);
-  __m256i anti_mask = _mm256_lddqu_si256((const __m256i *) anti_mask_arr);
+  __m256i n = _mm256_setzero_si256();
   
   for (int dy = y - 1; dy <= y + 1; dy++) {
     for (int dx = x - 1; dx <= x + 1; dx++) {
@@ -152,24 +139,13 @@ static unsigned compute_new_state_vec(int x, int y, int size) {
   n = _mm256_or_si256(or_first_part, or_sec_part); // n = (n == 3 + me) | (n == 3)
   // A ce moment la, une cellule qui valide la condition du dessus vaut 255, grace a cette ligne on transforme les 255 en 1
   n = _mm256_and_si256(n, ones);
+  n = _mm256_and_si256(n,
+                       mask); // On masque ce qui depasse de la ligne pour le pas faire de simulation sur les cellule de padding
   
   __m256i n_eq_cells = _mm256_cmpeq_epi8(cells, n);
   change = UINT32_MAX - _mm256_movemask_epi8(n_eq_cells);
   
-  __m256i next_cells = _mm256_lddqu_si256((const __m256i *) &next_table(y, x));
-  next_cells = _mm256_and_si256(next_cells, anti_mask);
-  
-  n = _mm256_and_si256(n, mask);
-  n = _mm256_add_epi8(next_cells, n);
-  
-  __m256i gt_one = _mm256_cmpgt_epi8(n, ones);
-  __m256i eq_one = _mm256_cmpeq_epi8(n, ones);
-  __m256i alive = _mm256_or_si256(gt_one, eq_one);
-  
-  n = _mm256_and_si256(alive, ones);
-  
   _mm256_storeu_si256((__m256i_u *) &next_table(y, x), n);
-  
   return change;
 }
 
@@ -252,7 +228,7 @@ unsigned life_vec_compute_vec_tiled(unsigned nb_iter) {
     
     swap_tables();
     
-    if (!change) { // we stop when all cells are stable
+    if (!change) {
       res = it;
       break;
     }
@@ -341,63 +317,21 @@ static void wakeup_around(int x, int y) {
   }
 }
 
-static int compute_new_state_vec_omp(int x, int y) {
-  int change = 0;
-  
-  __m256i n = _mm256_setzero_si256();
-  
-  for (int dy = y - 1; dy <= y + 1; dy++) {
-    for (int dx = x - 1; dx <= x + 1; dx++) {
-      __m256i n_line = _mm256_lddqu_si256((const __m256i *) &cur_table(dy, dx));
-      n = _mm256_add_epi8(n, n_line);
-    }
-  }
-  
-  __m256i cells = _mm256_lddqu_si256((const __m256i *) &cur_table(y, x));
-  __m256i three = _mm256_set1_epi8(3);
-  __m256i ones = _mm256_set1_epi8(1);
-  
-  __m256i three_plus_cell_val = _mm256_add_epi8(cells, three);
-  __m256i or_first_part = _mm256_cmpeq_epi8(n, three_plus_cell_val); // (n == 3 + me)
-  __m256i or_sec_part = _mm256_cmpeq_epi8(n, three); // (n == 3)
-  n = _mm256_or_si256(or_first_part, or_sec_part); // n = (n == 3 + me) | (n == 3)
-  // A ce moment la, une cellule qui valide la condition du dessus vaut 255, grace a cette ligne on transforme les 255 en 1
-  n = _mm256_and_si256(n, ones);
-  
-  __m256i n_eq_cells = _mm256_cmpeq_epi8(cells, n);
-  change = UINT32_MAX - _mm256_movemask_epi8(n_eq_cells);
-  
-  _mm256_storeu_si256((__m256i_u *) &next_table(y, x), n);
-  return change;
-}
-
-static int do_tile_reg_vec(int x, int y, int width, int height) {
-  int change = 0;
-  
-  x += x == 0;
-  y += y == 0;
-  x -= x == DIM - TILE_W;
-  y -= y == DIM - TILE_H;
-  
-  for (int dy = y; dy < y + height; dy++) {
-    int remaining = width;
-    int dx = x;
-    do {
-      int advance = min(CELL_PER_VEC, remaining);
-      change |= compute_new_state_vec_omp(dx, dy);
-      dx += advance;
-      remaining -= advance;
-    } while (remaining);
-  }
-  return change;
-}
-
 static int do_tile_vec(int x, int y, int width, int height, int who) {
   int r = 0;
   if (get_tile_from_pixel(x, y) >= AWAKE) {
     monitoring_start_tile(who);
     
-    r = do_tile_reg_vec(x, y, width, height);
+    width -= (x == 0);
+    height -= (y == 0);
+    
+    width -= x == DIM - TILE_W;
+    height -= y == DIM - TILE_H;
+    
+    x += x == 0;
+    y += y == 0;
+    
+    r = do_tile_reg(x, y, width, height);
     
     enum TileState newState = r == 0 ? ASLEEP : AWAKE;
 #pragma omp critical(insomnia_lock)
@@ -423,7 +357,7 @@ unsigned life_vec_compute_vec_omp_tiled_lazy(unsigned nb_iter) {
   for (unsigned it = 1; it <= nb_iter; it++) {
     unsigned change = 0;
 
-#pragma omp parallel for collapse(2) reduction(|:change) schedule(runtime)
+#pragma omp parallel for reduction(|:change) schedule(static)
     for (int y = 0; y < DIM; y += TILE_H)
       for (int x = 0; x < DIM; x += TILE_W)
         change |= do_tile_vec(x, y, TILE_W, TILE_H, omp_get_thread_num());

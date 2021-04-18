@@ -2,11 +2,11 @@
 
 rm *.png
 
-make
+make -j 12
 clear
 
-#./run -k life_vec -v seq -a meta3x3 -s 6208 -n -i $1 -du
-./run -k life_vec -v vec_seq -a meta3x3 -s 6208 -n -i $1 -du
-#./run -k life_vec -v vec_tiled -a meta3x3 -s 6208 -n -i $1 -du
-./run -k life_vec -v vec_omp_tiled_lazy -a meta3x3 -s 6208 -ts 194 -n -i $1 -du
+#./run -k life_vec -v seq -s 1000 -ts 10 -n -i $1 -du
+./run -k life_vec -v vec_seq -s 1024 -ts 32 -n -i $1 -du
+#./run -k life_vec -v vec_tiled -s 1000 -ts 500 -n -i $1 -du
+./run -k life_vec -v vec_omp_tiled_lazy -s 1024 -ts 32 -n -i $1 -du
 diff *.png
